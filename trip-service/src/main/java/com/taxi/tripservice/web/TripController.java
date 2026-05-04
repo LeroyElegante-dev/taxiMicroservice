@@ -7,6 +7,8 @@ import com.taxi.common.dto.TripStatusPatchRequest;
 import com.taxi.tripservice.service.TripService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -59,9 +61,46 @@ public class TripController {
     }
 
     @PatchMapping("/{id}/status")
-    @Operation(summary = "Смена статуса поездки")
+    @Operation(
+            summary = "Смена статуса поездки",
+            description = """
+                    Допустимые переходы (строго по порядку):
+                    **ASSIGNED** → **ACCEPTED** или **CANCELLED**;
+                    **ACCEPTED** → **IN_PROGRESS** или **CANCELLED**;
+                    **IN_PROGRESS** → **COMPLETED** или **CANCELLED**.
+                    Пример: из ASSIGNED нельзя сразу в IN_PROGRESS — сначала выберите пример «1 — водитель принял»."""
+    )
     @ApiResponse(responseCode = "409", description = "Недопустимый переход статуса", content = @Content)
-    public TripResponse patchStatus(@PathVariable long id, @Valid @RequestBody TripStatusPatchRequest request) {
+    public TripResponse patchStatus(
+            @PathVariable long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "В Swagger откройте список **Examples** и выберите нужный шаг, либо введите JSON вручную.",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = TripStatusPatchRequest.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "1 — водитель принял (из ASSIGNED)",
+                                            value = "{\"status\":\"ACCEPTED\"}"
+                                    ),
+                                    @ExampleObject(
+                                            name = "2 — поездка началась (из ACCEPTED)",
+                                            value = "{\"status\":\"IN_PROGRESS\"}"
+                                    ),
+                                    @ExampleObject(
+                                            name = "3 — завершена (из IN_PROGRESS)",
+                                            value = "{\"status\":\"COMPLETED\"}"
+                                    ),
+                                    @ExampleObject(
+                                            name = "Отмена (из ASSIGNED, ACCEPTED или IN_PROGRESS)",
+                                            value = "{\"status\":\"CANCELLED\"}"
+                                    )
+                            }
+                    )
+            )
+            @RequestBody @Valid TripStatusPatchRequest request
+    ) {
         return tripService.updateStatus(id, request);
     }
 

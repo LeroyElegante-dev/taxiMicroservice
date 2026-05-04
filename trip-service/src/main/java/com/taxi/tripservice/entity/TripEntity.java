@@ -33,22 +33,23 @@ public class TripEntity {
     @Column(nullable = false, length = 32)
     private TripStatus status;
 
-    @Column(name = "origin_lat", nullable = false)
+    @Column(name = "origin_lat", nullable = false, precision = 12, scale = 8)
     private BigDecimal originLat;
 
-    @Column(name = "origin_lng", nullable = false)
+    @Column(name = "origin_lng", nullable = false, precision = 12, scale = 8)
     private BigDecimal originLng;
 
-    @Column(name = "dest_lat", nullable = false)
+    @Column(name = "dest_lat", nullable = false, precision = 12, scale = 8)
     private BigDecimal destLat;
 
-    @Column(name = "dest_lng", nullable = false)
+    @Column(name = "dest_lng", nullable = false, precision = 12, scale = 8)
     private BigDecimal destLng;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
-    private Integer rating;
+    /** В БД SMALLINT (V2); JPA Integer маппится на INTEGER — несовпадение при validate. */
+    private Short rating;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -137,11 +138,11 @@ public class TripEntity {
     }
 
     public Integer getRating() {
-        return rating;
+        return rating == null ? null : Integer.valueOf(rating);
     }
 
     public void setRating(Integer rating) {
-        this.rating = rating;
+        this.rating = rating == null ? null : rating.shortValue();
     }
 
     public Instant getCreatedAt() {
