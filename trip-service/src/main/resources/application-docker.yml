@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/taxi
+
+taxi:
+  user-service:
+    url: http://user-service:8080
