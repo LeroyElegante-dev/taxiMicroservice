@@ -20,6 +20,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    table: flyway_user_service_history
+    baseline-on-migrate: true
 
 springdoc:
   api-docs:
