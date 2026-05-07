@@ -14,6 +14,7 @@ import com.taxi.tripservice.entity.TripEntity;
 import com.taxi.tripservice.integration.DriverServiceClient;
 import com.taxi.tripservice.integration.NotificationClient;
 import com.taxi.tripservice.repository.DriverClaimRepository;
+import com.taxi.tripservice.repository.DriverStatusRepository;
 import com.taxi.tripservice.repository.TripRepository;
 import com.taxi.tripservice.support.InvalidTripOperationException;
 import com.taxi.tripservice.support.NoDriversAvailableException;
@@ -32,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,6 +53,8 @@ class TripServiceTest {
     @Mock
     DriverClaimRepository driverClaimRepository;
     @Mock
+    DriverStatusRepository driverStatusRepository;
+    @Mock
     DriverServiceClient driverServiceClient;
     @Mock
     NotificationClient notificationClient;
@@ -67,6 +71,7 @@ class TripServiceTest {
         tripService = new TripService(
                 tripRepository,
                 driverClaimRepository,
+                driverStatusRepository,
                 driverServiceClient,
                 notificationClient,
                 pricingProperties,
@@ -100,7 +105,8 @@ class TripServiceTest {
                 new GeoPointRequest(new BigDecimal("55.76"), new BigDecimal("37.63"))
         );
 
-        var response = tripService.createTrip(req);
+        UUID key = UUID.randomUUID();
+        var response = tripService.createTrip(req, key);
 
         assertThat(response.id()).isEqualTo(100L);
         assertThat(response.driverId()).isEqualTo(9L);
@@ -125,8 +131,30 @@ class TripServiceTest {
                 new GeoPointRequest(new BigDecimal("0"), new BigDecimal("1"))
         );
 
-        assertThatThrownBy(() -> tripService.createTrip(req))
+        assertThatThrownBy(() -> tripService.createTrip(req, UUID.randomUUID()))
                 .isInstanceOf(NoDriversAvailableException.class);
+    }
+
+    @Test
+    void createTrip_idempotencyReturnsExistingTripWithoutSideEffects() {
+        UUID key = UUID.randomUUID();
+        TripEntity existing = tripEntity(TripStatus.ASSIGNED);
+        ReflectionTestUtils.setField(existing, "id", 777L);
+        when(tripRepository.findByClientRequestId(key)).thenReturn(Optional.of(existing));
+
+        TripCreateRequest req = new TripCreateRequest(
+                1L,
+                new GeoPointRequest(new BigDecimal("55.75"), new BigDecimal("37.62")),
+                new GeoPointRequest(new BigDecimal("55.76"), new BigDecimal("37.63"))
+        );
+
+        var out = tripService.createTrip(req, key);
+
+        assertThat(out.id()).isEqualTo(777L);
+        verify(driverServiceClient, never()).getPassenger(anyLong());
+        verify(driverClaimRepository, never()).claimNextFreeDriver();
+        verify(tripRepository, never()).save(any(TripEntity.class));
+        verify(notificationClient, never()).onTripStatusChanged(anyLong(), any(), any());
     }
 
     @Test
@@ -158,6 +186,7 @@ class TripServiceTest {
 
         tripService.updateStatus(1L, new TripStatusPatchRequest(TripStatus.COMPLETED));
 
+        verify(driverStatusRepository).setStatus(2L, DriverStatus.FREE);
         verify(driverServiceClient).updateDriverStatus(2L, DriverStatus.FREE);
         ArgumentCaptor<TripStatus> cap = ArgumentCaptor.forClass(TripStatus.class);
         verify(notificationClient).onTripStatusChanged(eq(1L), cap.capture(), eq("Статус поездки обновлён"));

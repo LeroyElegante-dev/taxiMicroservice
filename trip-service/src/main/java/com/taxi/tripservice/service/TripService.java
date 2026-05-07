@@ -17,12 +17,14 @@ import com.taxi.tripservice.geo.Haversine;
 import com.taxi.tripservice.integration.DriverServiceClient;
 import com.taxi.tripservice.integration.NotificationClient;
 import com.taxi.tripservice.repository.DriverClaimRepository;
+import com.taxi.tripservice.repository.DriverStatusRepository;
 import com.taxi.tripservice.repository.TripRepository;
 import com.taxi.tripservice.support.InvalidTripOperationException;
 import com.taxi.tripservice.support.NoDriversAvailableException;
 import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -31,6 +33,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class TripService {
@@ -39,6 +42,7 @@ public class TripService {
 
     private final TripRepository tripRepository;
     private final DriverClaimRepository driverClaimRepository;
+    private final DriverStatusRepository driverStatusRepository;
     private final DriverServiceClient driverServiceClient;
     private final NotificationClient notificationClient;
     private final TripPricingProperties pricingProperties;
@@ -47,6 +51,7 @@ public class TripService {
     public TripService(
             TripRepository tripRepository,
             DriverClaimRepository driverClaimRepository,
+            DriverStatusRepository driverStatusRepository,
             DriverServiceClient driverServiceClient,
             NotificationClient notificationClient,
             TripPricingProperties pricingProperties,
@@ -54,35 +59,54 @@ public class TripService {
     ) {
         this.tripRepository = tripRepository;
         this.driverClaimRepository = driverClaimRepository;
+        this.driverStatusRepository = driverStatusRepository;
         this.driverServiceClient = driverServiceClient;
         this.notificationClient = notificationClient;
         this.pricingProperties = pricingProperties;
         this.transactionTemplate = transactionTemplate;
     }
 
-    public TripResponse createTrip(TripCreateRequest request) {
+    public TripResponse createTrip(TripCreateRequest request, UUID clientRequestId) {
+        if (clientRequestId != null) {
+            Optional<TripEntity> existing = tripRepository.findByClientRequestId(clientRequestId);
+            if (existing.isPresent()) {
+                return toResponse(existing.get());
+            }
+        }
+
         validatePassenger(request.passengerId());
         List<DriverResponse> preview = driverServiceClient.listFreeDrivers();
         log.info("Перед назначением: GET /drivers?status=FREE вернул {} записей", preview.size());
 
         BigDecimal price = calculatePrice(request.origin(), request.destination());
 
-        TripEntity saved = transactionTemplate.execute(status -> {
-            Optional<Long> driverId = driverClaimRepository.claimNextFreeDriver();
-            if (driverId.isEmpty()) {
-                throw new NoDriversAvailableException("Нет свободных водителей");
+        TripEntity saved;
+        try {
+            saved = transactionTemplate.execute(status -> {
+                Optional<Long> driverId = driverClaimRepository.claimNextFreeDriver();
+                if (driverId.isEmpty()) {
+                    throw new NoDriversAvailableException("Нет свободных водителей");
+                }
+                TripEntity trip = new TripEntity();
+                trip.setClientRequestId(clientRequestId);
+                trip.setPassengerId(request.passengerId());
+                trip.setDriverId(driverId.get());
+                trip.setStatus(TripStatus.ASSIGNED);
+                trip.setOriginLat(request.origin().latitude());
+                trip.setOriginLng(request.origin().longitude());
+                trip.setDestLat(request.destination().latitude());
+                trip.setDestLng(request.destination().longitude());
+                trip.setPrice(price);
+                return tripRepository.save(trip);
+            });
+        } catch (DataIntegrityViolationException e) {
+            if (clientRequestId != null) {
+                return tripRepository.findByClientRequestId(clientRequestId)
+                        .map(this::toResponse)
+                        .orElseThrow(() -> e);
             }
-            TripEntity trip = new TripEntity();
-            trip.setPassengerId(request.passengerId());
-            trip.setDriverId(driverId.get());
-            trip.setStatus(TripStatus.ASSIGNED);
-            trip.setOriginLat(request.origin().latitude());
-            trip.setOriginLng(request.origin().longitude());
-            trip.setDestLat(request.destination().latitude());
-            trip.setDestLng(request.destination().longitude());
-            trip.setPrice(price);
-            return tripRepository.save(trip);
-        });
+            throw e;
+        }
         if (saved == null) {
             throw new IllegalStateException("Не удалось сохранить поездку");
         }
@@ -91,6 +115,10 @@ public class TripService {
         notificationClient.onTripStatusChanged(saved.getId(), TripStatus.ASSIGNED, "Водитель назначен");
 
         return toResponse(saved);
+    }
+
+    public TripResponse createTrip(TripCreateRequest request) {
+        return createTrip(request, null);
     }
 
     @Transactional(readOnly = true)
@@ -114,6 +142,9 @@ public class TripService {
         TripEntity saved = tripRepository.save(trip);
 
         if (next == TripStatus.COMPLETED || next == TripStatus.CANCELLED) {
+            // Гарантируем возврат статуса в БД даже при проблемах связи с User Service
+            driverStatusRepository.setStatus(saved.getDriverId(), DriverStatus.FREE);
+            // Синхронизация через HTTP — best effort (логирует при сбоях)
             driverServiceClient.updateDriverStatus(saved.getDriverId(), DriverStatus.FREE);
         }
         notificationClient.onTripStatusChanged(saved.getId(), next, "Статус поездки обновлён");

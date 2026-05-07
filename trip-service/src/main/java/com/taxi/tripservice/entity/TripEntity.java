@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "trips")
@@ -28,6 +29,9 @@ public class TripEntity {
 
     @Column(name = "driver_id")
     private Long driverId;
+
+    @Column(name = "client_request_id", unique = true)
+    private UUID clientRequestId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -87,6 +91,14 @@ public class TripEntity {
 
     public void setDriverId(Long driverId) {
         this.driverId = driverId;
+    }
+
+    public UUID getClientRequestId() {
+        return clientRequestId;
+    }
+
+    public void setClientRequestId(UUID clientRequestId) {
+        this.clientRequestId = clientRequestId;
     }
 
     public TripStatus getStatus() {

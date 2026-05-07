@@ -1,6 +1,10 @@
 spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/taxi
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
 
 taxi:
   user-service:

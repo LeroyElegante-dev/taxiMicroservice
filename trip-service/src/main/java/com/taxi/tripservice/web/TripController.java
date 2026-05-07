@@ -11,19 +11,23 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/trips")
@@ -31,9 +35,14 @@ import java.util.List;
 public class TripController {
 
     private final TripService tripService;
+    private final long poorNetworkDelayMs;
 
-    public TripController(TripService tripService) {
+    public TripController(
+            TripService tripService,
+            @Value("${taxi.simulation.poor-network-delay-ms:0}") long poorNetworkDelayMs
+    ) {
         this.tripService = tripService;
+        this.poorNetworkDelayMs = Math.max(0, poorNetworkDelayMs);
     }
 
     @PostMapping
@@ -43,8 +52,18 @@ public class TripController {
     @ApiResponse(responseCode = "400", description = "Ошибка валидации", content = @Content)
     @ApiResponse(responseCode = "404", description = "Пассажир не найден", content = @Content)
     @ApiResponse(responseCode = "503", description = "Нет свободных водителей или User Service недоступен", content = @Content)
-    public TripResponse create(@Valid @RequestBody TripCreateRequest request) {
-        return tripService.createTrip(request);
+    public TripResponse create(
+            @Valid @RequestBody TripCreateRequest request,
+            @Parameter(description = "UUID для идемпотентности: повторите POST с тем же ключом, чтобы избежать дубля поездки")
+            @RequestHeader(value = "Idempotency-Key", required = false) UUID idempotencyKey,
+            @Parameter(description = "Симуляция плохого интернета: сервер обработает поездку, но задержит ответ на taxi.simulation.poor-network-delay-ms")
+            @RequestHeader(value = "X-Simulate-Poor-Network", required = false, defaultValue = "false") boolean simulatePoorNetwork
+    ) throws InterruptedException {
+        TripResponse out = tripService.createTrip(request, idempotencyKey);
+        if (simulatePoorNetwork && poorNetworkDelayMs > 0) {
+            Thread.sleep(poorNetworkDelayMs);
+        }
+        return out;
     }
 
     @GetMapping("/{id}")
