@@ -4,6 +4,7 @@ import com.taxi.common.dto.DriverResponse;
 import com.taxi.common.dto.DriverStatusUpdateRequest;
 import com.taxi.common.dto.PassengerResponse;
 import com.taxi.common.model.DriverStatus;
+import com.taxi.tripservice.cache.DriverCache;
 import com.taxi.tripservice.integration.feign.UserServiceFeignClient;
 import com.taxi.tripservice.support.UpstreamUnavailableException;
 import feign.FeignException;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Primary
@@ -24,10 +26,12 @@ public class ResilientDriverServiceClient implements DriverServiceClient {
 
     private final UserServiceFeignClient feign;
     private final Retry userServiceRetry;
+    private final DriverCache driverCache;
 
-    public ResilientDriverServiceClient(UserServiceFeignClient feign, Retry userServiceRetry) {
+    public ResilientDriverServiceClient(UserServiceFeignClient feign, Retry userServiceRetry, DriverCache driverCache) {
         this.feign = feign;
         this.userServiceRetry = userServiceRetry;
+        this.driverCache = driverCache;
     }
 
     @Override
@@ -46,8 +50,16 @@ public class ResilientDriverServiceClient implements DriverServiceClient {
 
     @Override
     public List<DriverResponse> listFreeDrivers() {
+        Optional<List<DriverResponse>> cached = driverCache.getFreeDrivers();
+        if (cached.isPresent()) {
+            log.debug("Список FREE водителей взят из Redis");
+            return cached.get();
+        }
         try {
-            return Retry.decorateSupplier(userServiceRetry, () -> feign.listDrivers(DriverStatus.FREE)).get();
+            List<DriverResponse> fresh =
+                    Retry.decorateSupplier(userServiceRetry, () -> feign.listDrivers(DriverStatus.FREE)).get();
+            driverCache.putFreeDrivers(fresh);
+            return fresh;
         } catch (Exception e) {
             log.warn("User Service недоступен: fallback для списка FREE-водителей — пустой список", e);
             return Collections.emptyList();
