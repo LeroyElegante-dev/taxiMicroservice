@@ -1,0 +1,4 @@
+# Slice-тесты поднимают полный @SpringBootApplication с TaxiSecurityConfiguration — без токена все запросы были бы 403.
+taxi:
+  security:
+    enabled: false

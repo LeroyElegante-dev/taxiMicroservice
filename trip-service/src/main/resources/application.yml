@@ -35,7 +35,7 @@ taxi:
     expiration-seconds: 86400
   user-service:
     url: http://localhost:8080
-  notification-service:
+  notifications:
     url: http://localhost:8083
   redis:
     enabled: true

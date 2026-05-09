@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class NotificationWorkerPool implements DisposableBean {
@@ -25,6 +26,7 @@ public class NotificationWorkerPool implements DisposableBean {
     private final NotificationTaskProcessingRepository processingRepository;
     private final NotificationWorkerProperties workerProperties;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    private final AtomicInteger threadSeq = new AtomicInteger();
     private ExecutorService executor;
 
     public NotificationWorkerPool(
@@ -42,7 +44,7 @@ public class NotificationWorkerPool implements DisposableBean {
         int n = Math.min(Math.max(workerProperties.getPoolSize(), 3), 5);
         executor = Executors.newFixedThreadPool(n, r -> {
             Thread t = new Thread(r);
-            t.setName("notification-worker-" + t.threadId());
+            t.setName("notification-worker-" + threadSeq.incrementAndGet());
             t.setDaemon(false);
             return t;
         });

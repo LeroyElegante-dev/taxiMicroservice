@@ -74,6 +74,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       TAXI_JWT_SECRET: ${TAXI_JWT_SECRET:-local-dev-secret-change-me-use-at-least-32-bytes-for-production-demo-key!!}
+      # Имитация сбоев доставки для проверки retry_count / возврата в PENDING (до 3 попыток)
+      TAXI_NOTIFICATION_WORKER_SIMULATED_FAILURE_RATE: ${TAXI_NOTIFICATION_WORKER_SIMULATED_FAILURE_RATE:-0.35}
     depends_on:
       postgres:
         condition: service_healthy

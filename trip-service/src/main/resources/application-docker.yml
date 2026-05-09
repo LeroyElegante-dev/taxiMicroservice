@@ -13,7 +13,7 @@ spring:
 taxi:
   user-service:
     url: http://user-service:8080
-  notification-service:
+  notifications:
     url: http://notification-service:8083
   jwt:
     secret: ${TAXI_JWT_SECRET}

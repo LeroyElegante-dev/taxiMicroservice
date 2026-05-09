@@ -43,6 +43,7 @@ public class RedisDriverCache implements DriverCache {
                 return Optional.empty();
             }
             List<DriverResponse> list = objectMapper.readValue(json, new TypeReference<List<DriverResponse>>() {});
+            log.info("В Redis найден кэш списка FREE-водителей ({} записей)", list.size());
             return Optional.of(list);
         } catch (Exception e) {
             log.warn("Не удалось прочитать кэш водителей из Redis", e);
@@ -54,7 +55,9 @@ public class RedisDriverCache implements DriverCache {
     public void putFreeDrivers(List<DriverResponse> drivers) {
         try {
             String json = objectMapper.writeValueAsString(drivers);
-            redisTemplate.opsForValue().set(KEY, json, Duration.ofSeconds(redisProperties.getTtlSeconds()));
+            long ttl = redisProperties.getTtlSeconds();
+            redisTemplate.opsForValue().set(KEY, json, Duration.ofSeconds(ttl));
+            log.info("В Redis записан список из {} FREE-водителей (TTL {} с)", drivers.size(), ttl);
         } catch (Exception e) {
             log.warn("Не удалось записать кэш водителей в Redis", e);
         }
@@ -63,5 +66,6 @@ public class RedisDriverCache implements DriverCache {
     @Override
     public void invalidateFreeDrivers() {
         redisTemplate.delete(KEY);
+        log.info("Кэш FREE-водителей в Redis сброшен");
     }
 }

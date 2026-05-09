@@ -52,7 +52,7 @@ public class ResilientDriverServiceClient implements DriverServiceClient {
     public List<DriverResponse> listFreeDrivers() {
         Optional<List<DriverResponse>> cached = driverCache.getFreeDrivers();
         if (cached.isPresent()) {
-            log.debug("Список FREE водителей взят из Redis");
+            log.info("Список FREE водителей взят из Redis (без запроса в User Service)");
             return cached.get();
         }
         try {

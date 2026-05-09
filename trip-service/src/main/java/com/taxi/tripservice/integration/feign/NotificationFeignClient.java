@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @FeignClient(
         name = "notificationServiceHttp",
-        url = "${taxi.notification-service.url}",
+        url = "${taxi.notifications.url}",
         configuration = FeignNotificationAuthConfig.class
 )
 public interface NotificationFeignClient {
