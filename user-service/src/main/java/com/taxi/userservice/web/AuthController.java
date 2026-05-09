@@ -5,6 +5,7 @@ import com.taxi.common.dto.AuthRegisterRequest;
 import com.taxi.common.dto.JwtAuthResponse;
 import com.taxi.userservice.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -27,12 +28,14 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
+    @SecurityRequirements
     @Operation(summary = "Регистрация пользователя API и получение JWT")
     public JwtAuthResponse register(@Valid @RequestBody AuthRegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
+    @SecurityRequirements
     @Operation(summary = "Вход и получение JWT")
     public JwtAuthResponse login(@Valid @RequestBody AuthLoginRequest request) {
         return authService.login(request);
