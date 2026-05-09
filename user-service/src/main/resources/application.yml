@@ -23,6 +23,19 @@ spring:
     table: flyway_user_service_history
     baseline-on-migrate: true
 
+taxi:
+  security:
+    enabled: true
+  jwt:
+    secret: ${TAXI_JWT_SECRET:local-dev-secret-change-me-use-at-least-32-bytes-for-production-demo-key!!}
+    expiration-seconds: 86400
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+
 springdoc:
   api-docs:
     path: /api-docs
