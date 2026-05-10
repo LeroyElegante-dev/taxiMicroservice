@@ -22,14 +22,34 @@ spring:
     table: flyway_trip_service_history
     baseline-on-migrate: true
     baseline-version: 0
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
 taxi:
+  security:
+    enabled: true
+  jwt:
+    secret: ${TAXI_JWT_SECRET:local-dev-secret-change-me-use-at-least-32-bytes-for-production-demo-key!!}
+    expiration-seconds: 86400
   user-service:
     url: http://localhost:8080
+  notifications:
+    url: http://localhost:8083
+  redis:
+    enabled: true
+    ttl-seconds: 30
   trip:
     price-per-km: 50.00
   simulation:
     poor-network-delay-ms: 15000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
 
 springdoc:
   api-docs:

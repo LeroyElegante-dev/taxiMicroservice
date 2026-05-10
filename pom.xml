@@ -22,12 +22,16 @@
         <java.version>17</java.version>
         <springdoc.version>2.5.0</springdoc.version>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
+        <jjwt.version>0.12.5</jjwt.version>
     </properties>
 
     <modules>
         <module>common</module>
+        <module>common-security</module>
         <module>user-service</module>
         <module>trip-service</module>
+        <module>notification-service</module>
+        <module>statistics-service</module>
     </modules>
 
     <dependencyManagement>
@@ -43,6 +47,21 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-api</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-impl</artifactId>
+                <version>${jjwt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.jsonwebtoken</groupId>
+                <artifactId>jjwt-jackson</artifactId>
+                <version>${jjwt.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

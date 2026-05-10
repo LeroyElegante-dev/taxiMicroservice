@@ -4,6 +4,7 @@ import com.taxi.common.dto.ErrorResponse;
 import com.taxi.common.exception.DuplicateResourceException;
 import com.taxi.common.exception.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.authentication.BadCredentialsException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponse> conflict(DuplicateResourceException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(base(HttpStatus.CONFLICT, ex.getMessage(), request, null));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> unauthorized(BadCredentialsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(base(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -11,6 +11,7 @@ import com.taxi.common.model.DriverStatus;
 import com.taxi.common.model.TripStatus;
 import com.taxi.tripservice.config.TripPricingProperties;
 import com.taxi.tripservice.entity.TripEntity;
+import com.taxi.tripservice.cache.DriverCache;
 import com.taxi.tripservice.integration.DriverServiceClient;
 import com.taxi.tripservice.integration.NotificationClient;
 import com.taxi.tripservice.repository.DriverClaimRepository;
@@ -59,6 +60,8 @@ class TripServiceTest {
     @Mock
     NotificationClient notificationClient;
     @Mock
+    DriverCache driverCache;
+    @Mock
     TransactionTemplate transactionTemplate;
 
     TripPricingProperties pricingProperties;
@@ -75,7 +78,8 @@ class TripServiceTest {
                 driverServiceClient,
                 notificationClient,
                 pricingProperties,
-                transactionTemplate
+                transactionTemplate,
+                driverCache
         );
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             @SuppressWarnings("unchecked")
@@ -114,6 +118,7 @@ class TripServiceTest {
         assertThat(response.price()).isPositive();
 
         verify(driverServiceClient).updateDriverStatus(9L, DriverStatus.BUSY);
+        verify(driverCache).invalidateFreeDrivers();
         verify(notificationClient).onTripStatusChanged(100L, TripStatus.ASSIGNED, "Водитель назначен");
     }
 
@@ -188,6 +193,7 @@ class TripServiceTest {
 
         verify(driverStatusRepository).setStatus(2L, DriverStatus.FREE);
         verify(driverServiceClient).updateDriverStatus(2L, DriverStatus.FREE);
+        verify(driverCache).invalidateFreeDrivers();
         ArgumentCaptor<TripStatus> cap = ArgumentCaptor.forClass(TripStatus.class);
         verify(notificationClient).onTripStatusChanged(eq(1L), cap.capture(), eq("Статус поездки обновлён"));
         assertThat(cap.getValue()).isEqualTo(TripStatus.COMPLETED);

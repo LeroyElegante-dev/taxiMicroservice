@@ -14,6 +14,7 @@ import com.taxi.common.model.TripStatus;
 import com.taxi.tripservice.config.TripPricingProperties;
 import com.taxi.tripservice.entity.TripEntity;
 import com.taxi.tripservice.geo.Haversine;
+import com.taxi.tripservice.cache.DriverCache;
 import com.taxi.tripservice.integration.DriverServiceClient;
 import com.taxi.tripservice.integration.NotificationClient;
 import com.taxi.tripservice.repository.DriverClaimRepository;
@@ -47,6 +48,7 @@ public class TripService {
     private final NotificationClient notificationClient;
     private final TripPricingProperties pricingProperties;
     private final TransactionTemplate transactionTemplate;
+    private final DriverCache driverCache;
 
     public TripService(
             TripRepository tripRepository,
@@ -55,7 +57,8 @@ public class TripService {
             DriverServiceClient driverServiceClient,
             NotificationClient notificationClient,
             TripPricingProperties pricingProperties,
-            TransactionTemplate transactionTemplate
+            TransactionTemplate transactionTemplate,
+            DriverCache driverCache
     ) {
         this.tripRepository = tripRepository;
         this.driverClaimRepository = driverClaimRepository;
@@ -64,6 +67,7 @@ public class TripService {
         this.notificationClient = notificationClient;
         this.pricingProperties = pricingProperties;
         this.transactionTemplate = transactionTemplate;
+        this.driverCache = driverCache;
     }
 
     public TripResponse createTrip(TripCreateRequest request, UUID clientRequestId) {
@@ -112,6 +116,7 @@ public class TripService {
         }
 
         driverServiceClient.updateDriverStatus(saved.getDriverId(), DriverStatus.BUSY);
+        driverCache.invalidateFreeDrivers();
         notificationClient.onTripStatusChanged(saved.getId(), TripStatus.ASSIGNED, "Водитель назначен");
 
         return toResponse(saved);
@@ -146,6 +151,7 @@ public class TripService {
             driverStatusRepository.setStatus(saved.getDriverId(), DriverStatus.FREE);
             // Синхронизация через HTTP — best effort (логирует при сбоях)
             driverServiceClient.updateDriverStatus(saved.getDriverId(), DriverStatus.FREE);
+            driverCache.invalidateFreeDrivers();
         }
         notificationClient.onTripStatusChanged(saved.getId(), next, "Статус поездки обновлён");
         return toResponse(saved);

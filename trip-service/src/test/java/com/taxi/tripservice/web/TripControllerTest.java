@@ -11,6 +11,8 @@ import com.taxi.tripservice.service.TripService;
 import com.taxi.tripservice.support.InvalidTripOperationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
@@ -31,7 +33,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = TripController.class)
+@WebMvcTest(
+        controllers = TripController.class,
+        excludeAutoConfiguration = {SecurityAutoConfiguration.class, RedisAutoConfiguration.class}
+)
 @Import(GlobalExceptionHandler.class)
 class TripControllerTest {
 
